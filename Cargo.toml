@@ -1,0 +1,13 @@
+[package]
+name = "tower-ratelimit"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.42.0", features = ["full"] }
+tower = { version = "0.5.1", features = ["full"] }
+pin-project = "1"
+redis = { version = "0.27.6", features = ["tokio-comp"] }
+
+[dev-dependencies]
+axum = "0.7.9"
