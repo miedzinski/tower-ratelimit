@@ -20,7 +20,6 @@ except KeyboardInterrupt:
     pass
 
 seconds = int(time.time() - start)
-# minutes = max(1, round(seconds / 60))
 minutes = seconds / 60
 print("took", seconds, "seconds")
 
