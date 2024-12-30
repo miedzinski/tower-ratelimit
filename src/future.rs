@@ -59,9 +59,9 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
-        match *this.state {
-            State::Querying => {
-                match this.query_future.poll(cx) {
+        loop {
+            match *this.state {
+                State::Querying => match this.query_future.as_mut().poll(cx) {
                     Poll::Ready(Ok((previous, current))) => {
                         let previous = previous.unwrap_or(0);
                         let current = current.unwrap_or(0);
@@ -74,25 +74,20 @@ where
                         };
                     }
                     Poll::Ready(Err(_)) => *this.state = State::Rejected,
-                    _ => {}
+                    _ => return Poll::Pending,
+                },
+                State::Rejected => return Poll::Ready(Err(RateLimitExceeded.into())),
+                State::Ready => {
+                    spawn(this.increment_future.take().unwrap());
+                    *this.state = State::Executing;
                 }
-                cx.waker().wake_by_ref();
-                Poll::Pending
-            }
-            State::Rejected => Poll::Ready(Err(RateLimitExceeded.into())),
-            State::Ready => {
-                spawn(this.increment_future.take().unwrap());
-                *this.state = State::Executing;
-                cx.waker().wake_by_ref();
-                Poll::Pending
-            }
-            State::Executing => match this.response_future.poll(cx) {
-                Poll::Ready(result) => Poll::Ready(result.map_err(Into::into)),
-                Poll::Pending => {
-                    cx.waker().wake_by_ref();
-                    Poll::Pending
+                State::Executing => {
+                    return match this.response_future.poll(cx) {
+                        Poll::Ready(result) => Poll::Ready(result.map_err(Into::into)),
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
-            },
+            }
         }
     }
 }
